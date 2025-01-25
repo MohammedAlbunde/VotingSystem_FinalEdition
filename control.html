@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="author" content="Mohammed Al-Bunde">
+    <meta name="contact" content="moh.iq8567@gmail.com">
+    <title>Enhanced Election Control Panel</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="assets/styles.css" rel="stylesheet">
+</head>
+<body>
+    <div class="settings-panel">
+        <div class="language-selector mb-3">
+            <label for="language" class="form-label" data-translate="language">Language</label>
+            <select id="language" class="form-select">
+                <option value="en">English</option>
+                <option value="ar">العربية</option>
+                <option value="fr">Français</option>
+            </select>
+        </div>
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="soundEffects" checked>
+            <label class="form-check-label" for="soundEffects" data-translate="soundEffects">Sound Effects</label>
+        </div>
+        <div class="theme-switch-wrapper">
+            <label class="theme-switch">
+                <input type="checkbox" id="themeSwitch">
+                <span class="slider"></span>
+            </label>
+            <span class="ms-2" data-translate="theme">Theme</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="logo-container">
+            <img src="assets/logo.jpg" alt="Logo" class="logo-img mb-4">
+        </div>
+
+        <div class="row mb-4">
+            <div class="col">
+                <h1 class="display-4 mb-4" data-translate="title">Election Control Panel</h1>
+                <button onclick="openDisplayWindow()" class="btn btn-primary mb-3">
+                    <i class="fas fa-desktop me-2"></i>
+                    <span data-translate="openDisplay">Open Display Window</span>
+                </button>
+                <button onclick="toggleCountingMode()" id="countingModeBtn" class="btn btn-warning mb-3 ms-2">
+                    <i class="fas fa-stopwatch me-2"></i>
+                    <span data-translate="startCounting">Start Counting</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="mb-0" data-translate="addCandidate">Add Candidate</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group">
+                            <input type="text" id="candidateName" class="form-control" data-translate="enterCandidateName" placeholder="Enter candidate name">
+                            <button onclick="addCandidate()" class="btn btn-success">
+                                <i class="fas fa-plus me-2"></i>
+                                <span data-translate="addCandidate">Add Candidate</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="mb-0" data-translate="candidates">Candidates</h3>
+                        <div>
+                            <button onclick="exportResults()" class="btn btn-info me-2">
+                                <i class="fas fa-file-export me-2"></i>
+                                <span data-translate="exportResults">Export Results</span>
+                            </button>
+                            <button onclick="showResults()" class="btn btn-primary">
+                                <i class="fas fa-trophy me-2"></i>
+                                <span data-translate="showResults">Show Final Results</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="candidatesList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="voteSound" src="assets/sounds/vote.mp3"></audio>
+    <audio id="winnerSound" src="assets/sounds/winner.mp3"></audio>
+    <audio id="buttonSound" src="assets/sounds/button.mp3"></audio>
+
+    <footer class="text-center mt-4 mb-3 text-muted">
+        <small>
+            Created by <a href="https://github.com/MohammedAlbunde" target="_blank" class="text-decoration-none">Mohammed Al-Bunde</a>
+            | <a href="mailto:moh.iq8567@gmail.com" class="text-decoration-none">moh.iq8567@gmail.com</a>
+            | 2025 All rights reserved
+        </small>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="assets/translations.js"></script>
+    <script>
+        let displayWindow = null;
+        let candidates = [];
+        let isCountingMode = false;
+        let currentLang = 'en';
+        let soundEnabled = true;
+        
+        // Initialize language and theme
+        document.getElementById('language').addEventListener('change', function(e) {
+            setLanguage(e.target.value);
+        });
+
+        document.getElementById('soundEffects').addEventListener('change', function(e) {
+            soundEnabled = e.target.checked;
+        });
+
+        document.getElementById('themeSwitch').addEventListener('change', function(e) {
+            document.body.setAttribute('data-theme', e.target.checked ? 'dark' : 'light');
+        });
+
+        function playSound(soundId) {
+            if (soundEnabled) {
+                const sound = document.getElementById(soundId);
+                sound.currentTime = 0;
+                sound.play().catch(() => {});
+            }
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.getAttribute('data-translate');
+                if (translations[lang][key]) {
+                    if (element.tagName === 'INPUT' && element.type === 'text') {
+                        element.placeholder = translations[lang][key];
+                    } else {
+                        element.textContent = translations[lang][key];
+                    }
+                }
+            });
+
+            updateCandidatesList();
+        }
+
+        function openDisplayWindow() {
+            playSound('buttonSound');
+            if (displayWindow && !displayWindow.closed) {
+                displayWindow.focus();
+            } else {
+                displayWindow = window.open('display.html', 'DisplayWindow', 
+                    'width=1024,height=768,menubar=no,toolbar=no');
+                setTimeout(() => {
+                    updateDisplay();
+                    displayWindow.postMessage({ type: 'setLanguage', lang: currentLang }, '*');
+                }, 1000);
+            }
+        }
+
+        function addCandidate() {
+            playSound('buttonSound');
+            const name = document.getElementById('candidateName').value.trim();
+            if (name) {
+                candidates.push({
+                    name: name,
+                    votes: 0,
+                    id: Date.now()
+                });
+                document.getElementById('candidateName').value = '';
+                updateCandidatesList();
+                updateDisplay();
+            }
+        }
+
+        function updateCandidatesList() {
+            const list = document.getElementById('candidatesList');
+            list.innerHTML = '';
+
+            candidates.forEach(candidate => {
+                const row = document.createElement('div');
+                row.className = 'candidate-row';
+                row.innerHTML = `
+                    <div class="flex-grow-1">${candidate.name}</div>
+                    <div class="vote-buttons">
+                        <div class="vote-count">${candidate.votes}</div>
+                        ${isCountingMode ? `
+                            <button onclick="addVote(${candidate.id})" class="btn btn-success btn-vote">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                            <button onclick="removeVote(${candidate.id})" class="btn btn-danger btn-vote">
+                                <i class="fas fa-minus"></i>
+                            </button>
+                        ` : ''}
+                        <button onclick="removeCandidate(${candidate.id})" class="btn btn-outline-danger">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function toggleCountingMode() {
+            playSound('buttonSound');
+            isCountingMode = !isCountingMode;
+            const btn = document.getElementById('countingModeBtn');
+            btn.textContent = translations[currentLang][isCountingMode ? 'endCounting' : 'startCounting'];
+            btn.className = isCountingMode ? 'btn btn-danger mb-3 ms-2' : 'btn btn-warning mb-3 ms-2';
+            updateCandidatesList();
+            updateDisplay();
+        }
+
+        function addVote(candidateId) {
+            playSound('voteSound');
+            const candidate = candidates.find(c => c.id === candidateId);
+            if (candidate) {
+                candidate.votes++;
+                updateCandidatesList();
+                updateDisplay();
+            }
+        }
+
+        function removeVote(candidateId) {
+            playSound('buttonSound');
+            const candidate = candidates.find(c => c.id === candidateId);
+            if (candidate && candidate.votes > 0) {
+                candidate.votes--;
+                updateCandidatesList();
+                updateDisplay();
+            }
+        }
+
+        function removeCandidate(candidateId) {
+            playSound('buttonSound');
+            if (confirm(translations[currentLang].confirmRemove)) {
+                candidates = candidates.filter(c => c.id !== candidateId);
+                updateCandidatesList();
+                updateDisplay();
+            }
+        }
+
+        function showResults() {
+            playSound('winnerSound');
+            if (displayWindow && !displayWindow.closed) {
+                displayWindow.postMessage({ 
+                    type: 'showResults',
+                    candidates: candidates
+                }, '*');
+            }
+        }
+
+        function exportResults() {
+            playSound('buttonSound');
+            const wb = XLSX.utils.book_new();
+            
+            const data = candidates.map(c => ({
+                [translations[currentLang].candidates]: c.name,
+                [translations[currentLang].votes]: c.votes
+            }));
+            
+            const ws = XLSX.utils.json_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, "Results");
+            
+            XLSX.writeFile(wb, "election_results.xlsx");
+        }
+
+        function updateDisplay() {
+            if (displayWindow && !displayWindow.closed) {
+                displayWindow.postMessage({
+                    type: 'updateCandidates',
+                    candidates: candidates,
+                    isCountingMode: isCountingMode
+                }, '*');
+            }
+        }
+
+        // Initialize
+        setLanguage('en');
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Election Display</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/animate.css@4.1.1/animate.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: white;
+            padding: 40px;
+            min-height: 100vh;
+            overflow-y: auto;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .logo-img {
+            max-width: 200px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        #candidatesList {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        .candidate-display {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.5s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 250px;
+        }
+        .candidate-name {
+            font-size: 2em;
+            margin-bottom: 15px;
+            color: #fff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .vote-count {
+            font-size: 3em;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 10px rgba(0,255,0,0.5);
+            margin: 15px 0;
+        }
+        .progress {
+            height: 30px;
+            background-color: rgba(255, 255, 255, 0.2);
+            margin-top: auto;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            background: linear-gradient(45deg, #00ff00, #00cc00);
+            transition: width 1s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                rgba(255,255,255,0) 0%,
+                rgba(255,255,255,0.2) 50%,
+                rgba(255,255,255,0) 100%
+            );
+            animation: shine 2s infinite;
+        }
+        .counting-mode {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #dc3545;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.5em;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 20px rgba(220, 53, 69, 0.5);
+            z-index: 1000;
+        }
+        .results-title {
+            text-align: center;
+            margin-bottom: 50px;
+            color: #00ff00;
+            text-shadow: 0 0 20px rgba(0,255,0,0.5);
+            font-size: 4em;
+        }
+        .winner {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(0,255,0,0.3);
+        }
+        .winner::before {
+            content: '👑';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 3em;
+            animation: bounce 1s infinite;
+        }
+        @keyframes shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0) translateX(-50%); }
+            50% { transform: translateY(-20px) translateX(-50%); }
+        }
+        [dir="rtl"] {
+            text-align: right;
+        }
+        .rtl .counting-mode {
+            left: 20px;
+            right: auto;
+        }
+
+        @media (max-width: 768px) {
+            #candidatesList {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            }
+            .candidate-name {
+                font-size: 1.5em;
+            }
+            .vote-count {
+                font-size: 2.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="countingMode" class="counting-mode animate__animated animate__fadeIn" style="display: none;">
+        <i class="fas fa-stopwatch me-2"></i>
+        <span data-translate="countingInProgress">Counting in Progress...</span>
+    </div>
+
+    <div class="container">
+        <div class="logo-container">
+            <img src="assets/logo.jpg" alt="Logo" class="logo-img">
+        </div>
+
+        <h1 class="results-title animate__animated animate__fadeIn" style="display: none;">
+            <i class="fas fa-trophy me-3"></i>
+            <span data-translate="finalResults">Final Results</span>
+        </h1>
+
+        <div id="candidatesList"></div>
+    </div>
+
+    <script src="assets/translations.js"></script>
+    <script>
+        let showingResults = false;
+        let currentLang = 'en';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            
+            document.querySelectorAll('[data-translate]').forEach(element => {
+                const key = element.getAttribute('data-translate');
+                if (translations[lang][key]) {
+                    element.textContent = translations[lang][key];
+                }
+            });
+        }
+
+        function updateDisplay(candidates, isCountingMode) {
+            const list = document.getElementById('candidatesList');
+            list.innerHTML = '';
+
+            document.getElementById('countingMode').style.display = 
+                isCountingMode ? 'block' : 'none';
+
+            if (candidates.length === 0) {
+                list.innerHTML = `<h2 class="text-center" data-translate="waitingForCandidates">
+                    ${translations[currentLang].waitingForCandidates}
+                </h2>`;
+                return;
+            }
+
+            const totalVotes = candidates.reduce((sum, c) => sum + c.votes, 0);
+            const sortedCandidates = [...candidates].sort((a, b) => b.votes - a.votes);
+            const maxVotes = Math.max(...candidates.map(c => c.votes));
+
+            sortedCandidates.forEach((candidate, index) => {
+                const percentage = totalVotes > 0 ? (candidate.votes / totalVotes * 100).toFixed(1) : 0;
+                const isWinner = showingResults && candidate.votes === maxVotes && candidate.votes > 0;
+                const delay = index * 0.2;
+
+                const div = document.createElement('div');
+                div.className = `candidate-display animate__animated animate__fadeInUp ${isWinner ? 'winner' : ''}`;
+                div.style.animationDelay = `${delay}s`;
+                div.innerHTML = `
+                    <div class="candidate-name">${candidate.name}</div>
+                    <div class="vote-count animate__animated animate__pulse animate__infinite">
+                        ${candidate.votes} <span class="fs-4">${translations[currentLang].votes}</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar" role="progressbar" 
+                             style="width: ${percentage}%" 
+                             aria-valuenow="${percentage}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            ${percentage}%
+                        </div>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+
+            if (showingResults && totalVotes > 0) {
+                createConfetti();
+            }
+        }
+
+        function createConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+            for (let i = 0; i < 150; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animation = `fall ${Math.random() * 3 + 2}s linear forwards`;
+                    document.body.appendChild(confetti);
+                    setTimeout(() => confetti.remove(), 5000);
+                }, i * 50);
+            }
+        }
+
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'updateCandidates') {
+                updateDisplay(event.data.candidates, event.data.isCountingMode);
+            } else if (event.data.type === 'showResults') {
+                showingResults = true;
+                document.querySelector('.results-title').style.display = 'block';
+                updateDisplay(event.data.candidates, false);
+            } else if (event.data.type === 'setLanguage') {
+                setLanguage(event.data.lang);
+            }
+        });
+
+        window.addEventListener('unload', function() {
+            window.opener.postMessage('displayWindowClosed', '*');
+        });
+
+        setLanguage('en');
+    </script>
+</body>
+</html>
